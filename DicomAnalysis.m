@@ -1,4 +1,3 @@
-%% Beepul Bharti
 %% Sorting and Organizing Dicom Images
 % Files Organization:
 % Patient => Date => Series => Images
