@@ -39,9 +39,8 @@ allseries = dir(filePattern2);
 allseries(~[allseries.isdir])= []; %Remove all non directories.
 allseries(ismember({allseries.name},{'.','..'})) = [];
 
-% Print how many series there are and how many folders they come from
+% Print how many series there are
 fprintf('There are %d total series \n', length(allseries))
-fprintf('The series come from %d folders \n', length(unique(subfoldername)))
 
 %% Access files in each series 
 % Each file is a dicom file (slice/frame) that comes from a series (image)
@@ -202,6 +201,35 @@ Headers = {'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'Sca
     'CardiacNumofFrames' 'Contrast' 'Orientation'};
 ImageTable.Properties.VariableNames = Headers;
 writetable(ImageTable,'ImageTable.xls')
+
+% Creating histogram for Inversion Time
+% Inversion Time
+ITimeChar = cellfun(@(x) num2str(x), ITime, 'UniformOutput',false);
+indices = strcmp(ITimeChar, 'Missing');
+indices = (indices == 0);
+NumberofIR = sum(indices);
+IValues = ITimeChar(indices);
+IValues = str2double(IValues);
+figure(1)
+histogram(IValues)
+ylabel('Number of Images')
+xlabel('IR Time')
+MeanITime = round(mean(IValues),2);
+
+% Scan Sequence
+IRScanOnly = contains(ScanSequence,'IR');
+NumberofScanIR = sum(IRScanOnly);
+
+% Contrast
+ContrastOnly = (strcmp(Contrast,'Missing')==0);
+NumberofContrast = sum(ContrastOnly);
+
+% Summary of IR TIme, IR Scan Sequence, and Contrast
+fprintf('%d Images have an inversion recovery time \n', NumberofIR)
+fprintf('%.2f is the mean IR time \n', MeanITime)
+fprintf('%d Images have "IR" in ScanSequence \n', NumberofScanIR)
+fprintf('%d Images have Contrast \n', NumberofContrast)
+
 
 %% Table compiling patient data
 uniqueID = unique(Name);
