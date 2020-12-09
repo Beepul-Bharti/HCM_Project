@@ -9,6 +9,7 @@ format long g;
 format compact;
 
 % Define a starting folder.
+% This is where you will put your path
 start_path = fullfile('/home/beepul/HCM Project/DicomImages');
 
 % Ask user to confirm the folder, or change it.
@@ -38,17 +39,12 @@ allseries = dir(filePattern2);
 allseries(~[allseries.isdir])= []; %Remove all non directories.
 allseries(ismember({allseries.name},{'.','..'})) = [];
 
-% Check to see if they come from 812 unique folders 
-subfoldername = cell(length(allseries),1);
-for i = 1:length(allseries)
-     subfoldername(i) = cellstr(allseries(i).folder);
-end
-
+% Print how many series there are and how many folders they come from
 fprintf('There are %d total series \n', length(allseries))
 fprintf('The series come from %d folders \n', length(unique(subfoldername)))
 
 %% Access files in each series 
-% Each file is a dicom image which comes from a series 
+% Each file is a dicom file (slice/frame) that comes from a series (image)
 filePattern3 = strcat(topLevelFolder,'/*/*/*/*');
 allfiles = dir(filePattern3);
 allfiles(ismember({allfiles.name},{'.','..'})) = [];
@@ -65,6 +61,7 @@ p = 1;
 k = 2;
 
 % Figuring out which series is an image and which is not
+% This will only select MRI images (removes reports and other images)
 parfor i = 1:length(allseries)
     seriesdir = dir(fullfile(allseries(i).folder,allseries(i).name));
     [patpath,date] = fileparts(allseries(i).folder);
@@ -95,17 +92,17 @@ parfor i = 1:length(allseries)
     end
 end
 
+% This was a file that really was not an image so I specifically removed it
 % '/home/beepul/HCM Project/DicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'
 
 % Array that shows if a series is an image or not
-% A small set of patients have reports with no useful information
 SeriesArray = [PatientPath,SeriesPath,Name,Category,Number,seriessize];
 
 % Array for just MRI Images
+% Subset of SeriesArray which are MR
 ImageArray = SeriesArray(strcmp(Category,'MRI_Image'),:);
 
 % Removing this image bc unclear what it is
-% '/home/beepul/HCM Project/DicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'
 ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM Project/DicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
 
 %% Relevant Dicom Tags
@@ -134,6 +131,7 @@ SequenceName = cell(length(ImageArray),1);
 % Calculating Orientation
 Orientation = cell(length(ImageArray),1);
 
+% Tabulating all relevant DICOM tags for every image
 parfor i  = 1:length(ImageArray)
     imagedir = dir(ImageArray{i,2});
     imagedir(ismember({imagedir.name},{'.','..'})) = [];
@@ -194,6 +192,7 @@ parfor i  = 1:length(ImageArray)
 end
 
 % Array with details of each series
+% Creating Excel file
 ImageArrayNoPath = ImageArray(:,3:end);
 FinalImageArray = [ImageArrayNoPath,ScanSequence,SequenceVar,SequenceName,PixelRow,PixelColumn,...
     FlipAngle,EchoTime,RepTime,ITime,CNumFrames,Contrast,Orientation];
@@ -268,6 +267,8 @@ end
 PatientTable = table(PatID,LGEVLong,LGEHzLong,LGECoronal,LGEShortAxis,CineVLong,CineHzLong,CineCoronal,CineShortAxis);
 writetable(PatientTable,'PatientTable.xls')
 
+
+%% IGNORE FOR RIGHT NOW
 % Patients that have ShortAxis MRI and Short Axis Cine
 SA = PatImageSummary(PatImageSummary.LGEShortAxis == 1,:);
 SA = PatImageSummary.LGEShortAxis
