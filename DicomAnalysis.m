@@ -202,6 +202,14 @@ Headers = {'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'Sca
 ImageTable.Properties.VariableNames = Headers;
 writetable(ImageTable,'ImageTable.xls')
 
+% Creating histogram for Image Size
+ImageSize = ImageTable(:,4);
+ImageSize = table2array(ImageSize);
+figure(1);
+histogram(ImageSize)
+xlabel('Number of Slices/Frames in Image')
+ylabel('Count')
+
 % Creating histogram for Inversion Time
 % Inversion Time
 ITimeChar = cellfun(@(x) num2str(x), ITime, 'UniformOutput',false);
