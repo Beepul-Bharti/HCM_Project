@@ -202,6 +202,15 @@ Headers = {'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'Sca
 ImageTable.Properties.VariableNames = Headers;
 writetable(ImageTable,'ImageTable.xls')
 
+% Looking at overall distribution of number of slices/frames in images
+ImageSize = ImageTable(:,4);
+ImageSize = table2array(ImageSize);
+figure(1)
+histogram(ImageSize)
+xlabel('Number of Slices/Frames')
+ylabel('Count')
+
+% Checking number of slices/frames for images with CardiacNumberOfFrames
 % Creating histogram for Inversion Time
 % Inversion Time
 ITimeChar = cellfun(@(x) num2str(x), ITime, 'UniformOutput',false);
