@@ -25,7 +25,6 @@ fprintf('The top level folder is "%s".\n', topLevelFolder);
 PatientsDir = dir(topLevelFolder);
 PatientsDir(ismember({PatientsDir.name},{'.','..','DICOMDIR'})) = [];
 
-
 % 812 Patients with 812 subfolders
 filePattern = strcat(topLevelFolder,'/*/*');
 subfolders = dir(filePattern);
@@ -109,7 +108,13 @@ ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM Project/DicomImages/377/Mar 
 % Sequence Attributes 
 ScanSequence = cell(length(ImageArray),1);
 SequenceVar = cell(length(ImageArray),1);
-
+% Creating histogram for Image Size
+ImageSize = ImageTable(:,4);
+ImageSize = table2array(ImageSize);
+figure(1);
+histogram(ImageSize)
+xlabel('Number of Slices/Frames in Image')
+ylabel('Count')
 % Image Attributes
 PixelColumn = cell(length(ImageArray),1);
 PixelRow = cell(length(ImageArray),1);
