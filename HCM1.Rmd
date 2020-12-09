@@ -1,0 +1,93 @@
+---
+title: "HCM images"
+author: "Sevde Etoz Niemeier"
+date: "12/9/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+library(readxl)
+library(writexl)
+all_image <- read_xls("ImageTable-3.xls" )
+
+```
+
+## Data Summary and first criterion
+Metadata information per image - not slice. Table name: "ImageTable-3.xls"
+```{r all_image}
+#summary(all_image)
+Patients <- unique(all_image$`Patient Number`)
+
+```
+## Get potential cine images with the first criterion. 
+First criterion is: cine contrast  = missing & IR = missing & cardiac cycle > 1
+CardiacNumofFrames is a character array, so I needed to test all possibilities. WHen I only did > 0 , it also took Missing as >0. 
+```{r cine}
+#get all potential cine
+#For cine contrast  = missing & IR = missing & cardiac num of frames > 1
+
+cine1 <- all_image[(all_image$Contrast == "Missing")&(all_image$InversionTime == "Missing")&(all_image$CardiacNumofFrames!= "Missing")&(all_image$CardiacNumofFrames!= "0")&(all_image$CardiacNumofFrames> "1"), ]
+
+```
+### Cine Plots for the first criterion
+EchoTime, RepetationTime, FlipAngle per image for cine images
+
+```{r cine_plot, echo=TRUE}
+plot(cine1$EchoTime)
+plot(cine1$RepetitionTime)
+plot(cine1$FlipAngle)
+```
+### Other metadata for cine with first criterion
+SequenceName, SequenceVariant, ScanningSequence for cine. 
+```{r cine2, echo = TRUE}
+unique(cine1$SequenceVariant)
+unique(cine1$SequenceName)
+unique(cine1$ScanningSequence)
+```
+## Second criterion
+The first criterion did not narrowed down to the cine (see RepetitionTime, EchoTime plots, and SequenceName/Variant etc.) There is still variation in all plots and datasets.
+Cine is supposed to be a Gradient Echo, see http://www.mri-q.com/beating-heart-movies.html
+Therefore, I will use ScanningSequence tag to get only the cine images. New criterion will be [first criterion & ScanningSequence == "GR"]
+GR: gradient recalled. 
+
+```{r second_criterion_cine }
+cine2 <- cine1[(cine1$ScanningSequence == "GR"), ]
+```
+### Cine Plots for the second criterion
+EchoTime, RepetationTime, FlipAngle per image for cine images
+```{r second_criterion_cine_plot}
+plot(cine2$EchoTime)
+plot(cine2$RepetitionTime)
+plot(cine2$FlipAngle)
+unique(cine2$SequenceVariant)
+unique(cine2$SequenceName)
+unique(cine2$ScanningSequence)
+```
+## Third criterion: Use SequenceName
+According the the document that Edem sent us (https://livejohnshopkins-my.sharepoint.com/:b:/r/personal/setozni1_jh_edu/Documents/Shared-HCM%20project/papers/BH%20ADULT%20Z4.pdf?csf=1&web=1&e=mqskMD)
+cine sequences are always Trufi (which is a gradient sequence) and they start with "tfi" letters (in sequence name). In the current cine dataset, there are sequence names that start with "fl.....". I think these are flow images (phase contrast), not cine. Search for fl_ in the Edem's PDF. They also have cardiac number of images > 1. They look like cine. The flow images will also have a second image with identical metadata (except mag/phase tag) because phase contrast sequence exports two images (magnitude and phase). I look at the sequence name and the second noisy image to see them in the dicom viewer.
+Here I will add the SquenceName tag in the third criterion. 
+So third criterion will be = second criterion & SequenceName = "tfi..."
+```{r third _criterion}
+cine3 <- cine2[(substr(cine2$SequenceName,1,4) == "*tfi"), ]
+```
+### Cine Plots for the third criterion
+```{r third_criterion_cine_plot}
+plot(cine3$EchoTime)
+plot(cine3$RepetitionTime)
+plot(cine3$FlipAngle)
+unique(cine3$SequenceVariant)
+unique(cine3$SequenceName)
+unique(cine3$ScanningSequence)
+
+```
+## Final Cine Images
+We need to pick some images randomly and look if they are really cine. 
+```{r}
+write_xlsx(cine3,"/Users/sevdeetoz/OneDrive - Johns Hopkins/current projects/HCM/finalCINE.xlsx")
+
+```
