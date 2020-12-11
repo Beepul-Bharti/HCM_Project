@@ -1,7 +1,7 @@
 ---
-title: "HCM images"
+title: "HCM images - CINE"
 author: "Sevde Etoz Niemeier"
-date: "12/9/2020"
+date: "12/11/2020"
 output:
   pdf_document: default
   html_document: default
@@ -12,26 +12,31 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(warning = FALSE)
 library(readxl)
 library(writexl)
-all_image <- read_xls("ImageTable-3.xls" )
+all_image <- read_xls("/Users/sevdeetoz/OneDrive - Johns Hopkins/current projects/HCM/ImageTable-3.xls" )
 
 ```
 
-## Data Summary and first criterion
+## Import and clean the data
 Metadata information per image - not slice. Table name: "ImageTable-3.xls"
+Variables named InversionTime and cardiac num of cycles should be numeric, rather than character. THis will help with the conditions like InversionTime ~ 300 (this is a typical LGE inversion time), so we can exclude inversion time of 1000 or something like that. The same for cardiac num of frames: we need cardiac num of frames > 1 for cine. It is hard to do all of this with a character array. When you convert a character to numeric in R, "Missing" will be NA and the numeric values will stay the same
 ```{r all_image}
 #summary(all_image)
 Patients <- unique(all_image$`Patient Number`)
+all_image$InversionTime <- as.numeric(all_image$InversionTime)
+all_image$CardiacNumofFrames <- as.numeric(all_image$CardiacNumofFrames)
 
 ```
 ## Get potential cine images with the first criterion. 
-First criterion is: cine contrast  = missing & IR = missing & cardiac cycle > 1
-CardiacNumofFrames is a character array, so I needed to test all possibilities. WHen I only did > 0 , it also took Missing as >0. 
+First criterion is: cine contrast  = missing & IR = missing & cardiac num of frames > 1
+CardiacNumofFrames is a character array, so I needed to test all possibilities. WHen I only did > 0 , it also took Missing as >0. Therefore, I am trying to eliminate all options that are NOT "cardiac num of frames > 1"
+Contrast data is very inhomogeneous (see below), I will also add "No" as a measure of lacking contrast. There are others I'm also not completely sure, like "omniscan" or "Default". 
 ```{r cine}
 #get all potential cine
 #For cine contrast  = missing & IR = missing & cardiac num of frames > 1
 
-cine1 <- all_image[(all_image$Contrast == "Missing")&(all_image$InversionTime == "Missing")&(all_image$CardiacNumofFrames!= "Missing")&(all_image$CardiacNumofFrames!= "0")&(all_image$CardiacNumofFrames> "1"), ]
+cine1 <- all_image[((all_image$Contrast == "Missing")|(all_image$Contrast == "No"))&(is.na(all_image$InversionTime))&((!is.na(all_image$CardiacNumofFrames))&(all_image$CardiacNumofFrames > 1)), ]
 
+unique(all_image$Contrast)
 ```
 ### Cine Plots for the first criterion
 EchoTime, RepetationTime, FlipAngle per image for cine images
@@ -73,7 +78,7 @@ cine sequences are always Trufi (which is a gradient sequence) and they start wi
 Here I will add the SquenceName tag in the third criterion. 
 So third criterion will be = second criterion & SequenceName = "tfi..."
 ```{r third _criterion}
-cine3 <- cine2[(substr(cine2$SequenceName,1,4) == "*tfi"), ]
+cine3 <- cine2[(substr(cine2$SequenceName,1,4) == "*tfi")|(substr(cine2$SequenceName,1,3) == "tfi"), ]
 ```
 ### Cine Plots for the third criterion
 ```{r third_criterion_cine_plot}
@@ -87,7 +92,8 @@ unique(cine3$ScanningSequence)
 ```
 ## Final Cine Images
 We need to pick some images randomly and look if they are really cine. 
-```{r}
+```{r export_cine}
 write_xlsx(cine3,"/Users/sevdeetoz/OneDrive - Johns Hopkins/current projects/HCM/finalCINE.xlsx")
 
 ```
+
