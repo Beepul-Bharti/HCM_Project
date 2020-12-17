@@ -30,7 +30,7 @@ all_image$CardiacNumofFrames <- as.numeric(all_image$CardiacNumofFrames)
 First criterion is: cine contrast  = missing & IR = missing & cardiac num of frames > 1
 CardiacNumofFrames is a character array, so I needed to test all possibilities. WHen I only did > 0 , it also took Missing as >0. Therefore, I am trying to eliminate all options that are NOT "cardiac num of frames > 1"
 Contrast data is very inhomogeneous (see below), I will also add "No" as a measure of lacking contrast. There are others I'm also not completely sure, like "omniscan" or "Default". 
-```{r cine}
+```{r cine, echo=TRUE}
 #get all potential cine
 #For cine contrast  = missing & IR = missing & cardiac num of frames > 1
 
@@ -96,4 +96,53 @@ We need to pick some images randomly and look if they are really cine.
 write_xlsx(cine3,"/Users/sevdeetoz/OneDrive - Johns Hopkins/current projects/HCM/finalCINE.xlsx")
 
 ```
+## Get potential LGE images with the first criterion.
+The sequence document that Edem sent us includes multiple LGE sequence types (check sequences that has "MDE")
+SA MDE TRUFI STACK: 2D, TR~700, TE~1, InversionTime~300, SeqName: tfi, cine = off
+4CH MDE TRUFI: Similar to the previous one. 
+2CH MDE TRUFI: Similar to first two. 
+SA MDE TFL: 2D, TR~700, TE~3, InversionTime~300, SeqName: fl, cine = off
+3CH MDE TFL: Similar to previous one. 
 
+Some LGE seems like separate 2D images from a volume, while some are just 3D volume all together. In both cardiac Number of Images=1. 
+
+First criterion: 
+(contrast != "Missing" OR contrast = "Yes") AND (500 >InversionTime > 100 AND InversionTime != "Missing") (CardiacNumofFrames = 1)
+
+Here, inversion time of 100 and 500 is somewhat arbitrary. Ideally Inversion time should be~300, but that's not the case all the time. We will see the variation with graphs. 
+```{r LGE1, echo=TRUE}
+LGE1 <- all_image[((all_image$Contrast != "Missing")|(all_image$Contrast == "Yes"))&(!is.na(all_image$InversionTime)&(all_image$InversionTime > 100)&(all_image$InversionTime < 500))&(all_image$CardiacNumofFrames == 1), ]
+
+```
+### LGE Plots for the first criterion
+```{r LGE1_plot}
+plot(LGE1$EchoTime)
+plot(LGE1$RepetitionTime)
+plot(LGE1$FlipAngle)
+unique(LGE1$SequenceVariant)
+unique(LGE1$SequenceName)
+unique(LGE1$ScanningSequence)
+```
+## Second criterion for LGE
+I am not sure, if this is all LGE. TRs seems like they are clustered at different values. Since LGE is supposed to be a gradient echo sequence, I will remove the images with "SE" (spin echo) in the Scanning Sequence tag. 
+LGE2 = LGE1& ScanningSeq != SE & IR\\SE
+```{r LGE2, echo=TRUE}
+LGE2 <- LGE1[(LGE1$ScanningSequence != "SE") & (LGE1$ScanningSequence != "IR\\SE") , ]
+```
+### LGE Plots for the second criterion
+```{r LGE2_plot}
+plot(LGE2$EchoTime)
+plot(LGE2$RepetitionTime)
+plot(LGE2$FlipAngle)
+unique(LGE2$SequenceVariant)
+unique(LGE2$SequenceName)
+unique(LGE2$ScanningSequence)
+```
+LGE2 did not change the results. I am not sure why the data seem inhomogeneous. It might be because of having both 3D and 2D LGE images. Apparently, to find the most accurate inversion time for nulling the myocardium, they run multiple 2D sequences with varying inversion times. 
+"In practice, TI varies with time after Gd injection, and so operators may need to adjust TI several times during the acquisition of LGE-MRI. This will prolong the scan time. Recently, a new LGE sequence called phase-sensitive IR (PSIR) has been developed to address this problem. The PSIR sequence is designed in a way that it nulls the normal myocardium consistently over a range of TIs. Operators only need to use a default TI for the whole acquisition of LGE-MRI without adjusting it." from (doi: 10.6515/ACS20150616A)
+So we have a very inhomogenous LGE dataset. There are 2D, 3D LGEs, also we have LGE images with suboptimal inversion times (while they were trying to find the optimum inversion to null myocardium). Also see the inversion times above. The LGEs with suboptimal inversion times will have different contrast than "good LGEs", it might be a good idea to exclude them or adjust hem in a way to match the contrast between scar and normal myocardium. In a good LGE, myocardium should look black. I am not sure how we can do this with just the metdata information from the image table. Some ideas: look at the min and max intensity values in metadata. Or we can talk with Hayley and Dan, they might have had a similar issue. 
+
+I am exporting the current LGEs, use with caution. 
+```{r export_LGE, echo=TRUE}
+write_xlsx(LGE2,"/Users/sevdeetoz/OneDrive - Johns Hopkins/current projects/HCM/finalLGE.xlsx")
+```
