@@ -108,13 +108,7 @@ ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM Project/DicomImages/377/Mar 
 % Sequence Attributes 
 ScanSequence = cell(length(ImageArray),1);
 SequenceVar = cell(length(ImageArray),1);
-% Creating histogram for Image Size
-ImageSize = ImageTable(:,4);
-ImageSize = table2array(ImageSize);
-figure(1);
-histogram(ImageSize)
-xlabel('Number of Slices/Frames in Image')
-ylabel('Count')
+
 % Image Attributes
 PixelColumn = cell(length(ImageArray),1);
 PixelRow = cell(length(ImageArray),1);
@@ -207,7 +201,6 @@ Headers = {'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'Sca
 ImageTable.Properties.VariableNames = Headers;
 writetable(ImageTable,'ImageTable.xls')
 
-<<<<<<< HEAD
 % Looking at overall distribution of number of slices/frames in images
 ImageSize = ImageTable(:,4);
 ImageSize = table2array(ImageSize);
@@ -216,17 +209,6 @@ histogram(ImageSize)
 xlabel('Number of Slices/Frames')
 ylabel('Count')
 
-% Checking number of slices/frames for images with CardiacNumberOfFrames
-=======
-% Creating histogram for Image Size
-ImageSize = ImageTable(:,4);
-ImageSize = table2array(ImageSize);
-figure(1);
-histogram(ImageSize)
-xlabel('Number of Slices/Frames in Image')
-ylabel('Count')
-
->>>>>>> 461ebc62964c41ca25e58f30ce1bbaf582e69b2e
 % Creating histogram for Inversion Time
 % Inversion Time
 ITimeChar = cellfun(@(x) num2str(x), ITime, 'UniformOutput',false);
