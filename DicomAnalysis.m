@@ -190,16 +190,34 @@ parfor i  = 1:length(ImageArray)
 end
 
 % Array with details of each series
-% Creating Excel file
 ImageArrayNoPath = ImageArray(:,3:end);
+
+% Including File Paths
+FinalImageArraywPath = [ImageArray,ScanSequence,SequenceVar,SequenceName,PixelRow,PixelColumn,...
+    FlipAngle,EchoTime,RepTime,ITime,CNumFrames,Contrast,Orientation];
+
+% No File paths
 FinalImageArray = [ImageArrayNoPath,ScanSequence,SequenceVar,SequenceName,PixelRow,PixelColumn,...
     FlipAngle,EchoTime,RepTime,ITime,CNumFrames,Contrast,Orientation];
+
+ImageTablewPath = cell2table(FinalImageArraywPath);
 ImageTable = cell2table(FinalImageArray);
+
 Headers = {'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'ScanningSequence' 'SequenceVariant'...
     'SequenceName' 'PixelRowSpace' 'PixelColumnSpace' 'FlipAngle' 'EchoTime' 'RepetitionTime' 'InversionTime'...
     'CardiacNumofFrames' 'Contrast' 'Orientation'};
+HeaderswPaths = {'PatientPath' 'ImagePath' 'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'ScanningSequence' 'SequenceVariant'...
+    'SequenceName' 'PixelRowSpace' 'PixelColumnSpace' 'FlipAngle' 'EchoTime' 'RepetitionTime' 'InversionTime'...
+    'CardiacNumofFrames' 'Contrast' 'Orientation'};
+    
+% Adding header
+ImageTablewPath.Properties.VariableNames = HeaderswPaths;
 ImageTable.Properties.VariableNames = Headers;
+
+% Creating Excel Tables
+writetable(ImageTablewPath, 'ImageTableWithPaths.xls')
 writetable(ImageTable,'ImageTable.xls')
+
 
 % Looking at overall distribution of number of slices/frames in images
 ImageSize = ImageTable(:,4);
