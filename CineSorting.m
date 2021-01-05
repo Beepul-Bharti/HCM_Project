@@ -1,8 +1,9 @@
 %% Cine Sorting
 % Adapting Sevde's code to MATLAB
 
-% Load Image Table
+% Load Image Tables
 ImageTable = readtable('ImageTable.xls');
+ImageTablewPath = readtable('ImageTableWithPaths.xls');
 
 %% Cine Images
 % Steady-state free precession MRI (SSFP) is a type of gradient echo MRI pulse sequence in which a steady, 
@@ -11,20 +12,41 @@ ImageTable = readtable('ImageTable.xls');
 
 % Scanning Sequence = 'GR'
 CineTable = ImageTable(strcmp(ImageTable.ScanningSequence, 'GR'),:);
+CineTablewPath = ImageTablewPath(strcmp(ImageTablewPath.ScanningSequence, 'GR'),:);
 
 % Cardiac Number of Frames > 1
 CineTable = CineTable(CineTable.CardiacNumofFrames > 1,:);
+CineTablewPath = CineTablewPath(CineTablewPath.CardiacNumofFrames > 1,:);
 
 % Contrast = 'Missing' or 'No'
 Cineindices = strcmp(CineTable.Contrast,'Missing') + strcmp(CineTable.Contrast, 'No');
+CineindiceswPath = strcmp(CineTablewPath.Contrast,'Missing') + strcmp(CineTablewPath.Contrast, 'No');
 CineTable = CineTable(logical(Cineindices),:);
+CineTablewPath = CineTablewPath(logical(CineindiceswPath),:);
 
 % InversionTime = 'Missing' in this case NaN
 CineTable = CineTable(isnan(CineTable.InversionTime),:);
+CineTablewPath = CineTablewPath(isnan(CineTablewPath.InversionTime),:);
 
 % Sequence Name contains "tfi"
 CineTable = CineTable(contains(CineTable.SequenceName,'tfi'),:);
+CineTablewPath = CineTablewPath(contains(CineTablewPath.SequenceName,'tfi'),:);
 
+
+% Copy Cine Images to Separate Folder
+% Copying and moving LGE Series into Separate Folder
+CineOnly = unique(CineTable.PatientNumber);
+
+parfor i = 1:length(CineOnly)
+    name = CineOnly{i};
+    mkdir('Cine', name);
+    newpath = fullfile('/home/beepul/HCM Project/Cine',name);
+    temparray = CineTablewPath(strcmp(CineTablewPath.PatientNumber,name),2);
+    for k = 1:size(temparray,1)
+        [path,seriesname] = fileparts(temparray{k,1}{1});
+        copyfile(temparray{k,1}{1},fullfile(newpath,seriesname));
+    end
+end 
 
 %% Perfusion Images
 PerfTable = ImageTable(strcmp(ImageTable.ScanningSequence, 'GR'),:);
