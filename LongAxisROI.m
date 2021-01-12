@@ -1,14 +1,15 @@
 %% 4 Chamber Heart ROI Detection/Localization
 
 % Inputs
-% PatientNumber: String that is the Patient Number/name of the folder: ex '100'
-% NOTE: This folder should ONLY containn 4chamber cine 2D + t images
+% PatientNumber: Patient Number/name of the folder: ex: 100
+% NOTE: This folder should ONLY contain 4chamber cine 2D + t images
 
 % ImageNumber: Number that identifies which image you want to use: ex if
-% patient '100' has 4 images, you can choose any number 1 through 4
+% patient 100 has 4 images, you can choose any number 1 through 4
 
 % Outputs: 
-% ROIIMage: Cropped images around ROI (heart)
+% ROIIMage: Volume where each layer is a slice cropped around ROI (heart)
+
 function [ROIImage] = LongAxisROI(PatientNumber,ImageNumber)
     % Top Level Folder Directory: PatientNumber
     PatientNumber = string(PatientNumber);
@@ -98,7 +99,7 @@ function [ROIImage] = LongAxisROI(PatientNumber,ImageNumber)
     end
     
     % Make a feature set that includes texture analysis of both Variance
-    % and Edge images
+    % and Edge images for k-means segmentation
     featureSet = cat(3,gabormag,gabormag2,X,Y);
     SegImage = imsegkmeans(single(featureSet),2,'NormalizeInput',true);
 
@@ -110,18 +111,23 @@ function [ROIImage] = LongAxisROI(PatientNumber,ImageNumber)
         Mask = SegImage == 2;
     end
     
+    % In case there are more than objects in the mask, select/isolate the
+    % one with the largest perimeter
     Mask = bwpropfilt(Mask,'perimeter',1);
+    
     
     % Show the mask that comes from k means segmentation
     figure(4); ax = axes;
     imshow(Mask)  
     title(ax,'Mask from K-means Segmentation')
     
-   
     % Hough Transform for Circle Detection
     [centers, radii] = imfindcircles(Mask,[40,70],'Sensitivity',0.95);
     
-    % Pick the 'best' center and radius
+    % Pick the 'best' radius
+    % The best radius is the radius associated with the circle whose center
+    % is the closest to the centroid of the object in the mask
+    
     stats = regionprops(Mask,'Centroid');
     centroid = stats(1).Centroid;
     distance = centers - centroid;
@@ -132,19 +138,25 @@ function [ROIImage] = LongAxisROI(PatientNumber,ImageNumber)
     maskarea = sum(sum(Mask));
     ratio = circlearea/maskarea;
     
+    % We want the area of the circle to larger than the object in the mask
+    % image to make sure we get the whole heart so if the ratio is less
+    % than 1.2 we correct to ensure it is 1.25. Also if the radius is too
+    % large we shrink the radius
     if ratio < 1.2 || ratio > 1.3
-        strongradius = sqrt((maskarea*1.2)/pi);
+        strongradius = sqrt((maskarea*1.25)/pi);
     end
     
     % Show resulting circle overlayed over mask
+    % NOTE: We could use the 'best' center that comes from imfindcircles
+    % but the difference isn't much
     figure(5); ax = axes;
     imshow(Mask)
     viscircles(ax,centroid, strongradius,'EdgeColor','b')
     title(ax,'Mask and Overlayed Circle')
 
-    %   Make square filter to isolate the heart
-    %   The square filter is 10% larger than the circle to ensure the whole
-    %   heart is captured
+    % Make square filter to isolate the heart
+    % The square filter is 20% larger than the circle to ensure the whole
+    % heart is captured
     Filter = zeros(size(FinalImage,1),size(FinalImage,2));
     middle = round(centroid);
     Lside = round(middle(1) - (strongradius*1.20));
@@ -152,23 +164,27 @@ function [ROIImage] = LongAxisROI(PatientNumber,ImageNumber)
     Top = round(middle(2) + (strongradius*1.20));
     Bottom = round(middle(2) - (strongradius*1.20));
     Corners = [Lside,Rside,Top,Bottom];
-
+    
+    % If the filter exceeds the dimensions of the images, this corrects it
     if any(Corners > size(FinalImage,1))
         Corners(Corners > size(FinalImage,1)) = size(FinalImage,1);
     end
     if any(Corners < 1)
         Corners(Corners < 1) = 1;
     end
-
+    
+    % Populate the filter to have 1 wherever the heart is located
     Filter(Corners(4):Corners(3),Corners(1):Corners(2)) = 1;
     
+    % Show image of the rectangle over the heart
     figure(6); ax = axes;
     imshow(FinalImage(:,:,1),[])
     rectangle(ax,'Position',[Lside,Bottom,Rside-Lside,Top-Bottom],'FaceColor',[0 .5 .5],'EdgeColor','b',...
         'LineWidth',3)
     title('Image and Overlayed Filter')
     
-    % Show Example slice of resulting ROI
+    % Show Example slice of resulting ROI that comes from the filter
+    % applied to the preprocessed imaged
     ROIImage = FinalImage.*Filter;
     figure(7); ax = axes;
     imshow(ROIImage(:,:,1),[])
