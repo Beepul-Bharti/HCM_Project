@@ -37,14 +37,21 @@ CineTablewPath = CineTablewPath(contains(CineTablewPath.SequenceName,'tfi'),:);
 % Copying and moving LGE Series into Separate Folder
 CineOnly = unique(CineTable.PatientNumber);
 
+% Make Specific Folder for 4 chamber views only
+mkdir('Cine', '4Chamber');
+
 parfor i = 1:length(CineOnly)
     name = CineOnly{i};
-    mkdir('Cine', name);
     newpath = fullfile('/home/beepul/HCM Project/Cine',name);
-    temparray = CineTablewPath(strcmp(CineTablewPath.PatientNumber,name),2);
+    newpath2 = fullfile('/home/beepul/HCM Project/Cine/4Chamber',name);
+    temparray = CineTablewPath(strcmp(CineTablewPath.PatientNumber,name),2:end);
     for k = 1:size(temparray,1)
         [path,seriesname] = fileparts(temparray{k,1}{1});
-        copyfile(temparray{k,1}{1},fullfile(newpath,seriesname));
+        if strcmp(temparray.Orientation{k},'HzLong')
+            copyfile(temparray{k,1}{1},fullfile(newpath2,seriesname))
+        else
+            copyfile(temparray{k,1}{1},fullfile(newpath,seriesname));
+        end
     end
 end 
 
