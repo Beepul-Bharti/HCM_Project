@@ -10,6 +10,7 @@ format compact;
 
 % Define a starting folder.
 % This is where you will put your path
+% This folder should contain folders of each patient
 start_path = fullfile('/home/beepul/HCM Project/DicomImages');
 
 % Ask user to confirm the folder, or change it.
@@ -20,19 +21,19 @@ if topLevelFolder == 0
 end
 fprintf('The top level folder is "%s".\n', topLevelFolder);
 
-%% Patients Directory: 812 Patients
+%% Patients Directory: 813 Patients
 % Each entry is a patient
 PatientsDir = dir(topLevelFolder);
 PatientsDir(ismember({PatientsDir.name},{'.','..','DICOMDIR'})) = [];
 
-% 812 Patients with 812 subfolders
+% 813 Patients with 813 subfolders
 filePattern = strcat(topLevelFolder,'/*/*');
 subfolders = dir(filePattern);
 subfolders(~[subfolders.isdir])= []; %Remove all non directories.
 subfolders(ismember({subfolders.name},{'.','..'})) = [];
 
 %% Access Each Series
-% Each series has 1 to many images 
+% Each series has 1 to many slices/frames 
 filePattern2 = strcat(topLevelFolder,'/*/*/*');
 allseries = dir(filePattern2);
 allseries(~[allseries.isdir])= []; %Remove all non directories.
@@ -40,13 +41,14 @@ allseries(ismember({allseries.name},{'.','..'})) = [];
 
 % Print how many series there are
 fprintf('There are %d total series \n', length(allseries))
+% 27447 total series/images
 
 %% Access files in each series 
 % Each file is a dicom file (slice/frame) that comes from a series (image)
 filePattern3 = strcat(topLevelFolder,'/*/*/*/*');
 allfiles = dir(filePattern3);
 allfiles(ismember({allfiles.name},{'.','..'})) = [];
-fprintf('There are %d total images \n', length(allfiles));
+fprintf('There are %d total slices/frames/dicom files \n', length(allfiles));
 
 %% Classify View, Type and Retrieve Other Tags of Each Series/Image
 PatientPath = cell(length(allseries),1);
@@ -100,8 +102,8 @@ SeriesArray = [PatientPath,SeriesPath,Name,Category,Number,seriessize];
 % Subset of SeriesArray which are MR
 ImageArray = SeriesArray(strcmp(Category,'MRI_Image'),:);
 
-% Removing this image bc unclear what it is
-ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM Project/DicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
+% Removing this image (Series 51 for Patient 501] bc unclear what it is
+ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM Project/NEWDicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
 
 %% Relevant Dicom Tags
 
@@ -138,24 +140,46 @@ parfor i  = 1:length(ImageArray)
     info = dicominfo(imagedir(p).name,'UseDictionaryVR',true);
     
     % Orientation
-    v = info.ImageOrientationPatient
-    Orientation{i} = getOrientation(v(1:3),v(4:6));
-    
-    % Scanning Sequence
-    SequenceClass = info.ScanningSequence;
-    ScanSequence{i} = SequenceClass;
-    
-    % Sequence Variant
-    SequenceVar{i} = info.SequenceVariant;
+    try
+        v = info.ImageOrientationPatient;
+        Orientation{i} = getOrientation(v(1:3),v(4:6));
+    catch
+        Orientation{i} = 'Missing'
+    end
     
     % Pixel Spacing
-    Spacing = info.PixelSpacing;
-    PixelRow{i} = Spacing(1);
-    PixelColumn{i} = Spacing(2);
+    try
+        Spacing = info.PixelSpacing;
+        PixelRow{i} = Spacing(1);
+        PixelColumn{i} = Spacing(2);
+    catch
+        PixelRow{i} = 'Missing';
+        PixelColumn{i} = 'Missing';
+    end
     
     % Repetition and Echo Times
-    EchoTime{i} = info.EchoTime;
-    RepTime{i} = info.RepetitionTime;
+    try
+        EchoTime{i} = info.EchoTime;
+        RepTime{i} = info.RepetitionTime;
+    catch
+        EchoTime{i} = 'Missing'
+        RepTime{i} = 'Missing'
+    end
+    
+    % Sequence Variant
+    try
+         SequenceVar{i} = info.SequenceVariant;
+    catch
+         SequenceVar{i} = 'Missing'
+    end
+    
+    % Scan Sequence
+    try
+        SequenceClass = info.ScanningSequence;
+        ScanSequence{i} = SequenceClass;
+    catch 
+        ScanSequence{i} = 'Missing';
+    end
     
     % Dicom Tags that are optional
     try
@@ -177,15 +201,15 @@ parfor i  = 1:length(ImageArray)
     end
     
     try
-        ITime{i} = info.InversionTime
+        ITime{i} = info.InversionTime;
     catch
-        ITime{i} = 'Missing'
+        ITime{i} = 'Missing';
     end
     
     try
-        CNumFrames{i} = info.CardiacNumberOfImages
+        CNumFrames{i} = info.CardiacNumberOfImages;
     catch
-        CNumFrames{i} = 'Missing'
+        CNumFrames{i} = 'Missing';
     end
 end
 
@@ -200,6 +224,10 @@ FinalImageArraywPath = [ImageArray,ScanSequence,SequenceVar,SequenceName,PixelRo
 FinalImageArray = [ImageArrayNoPath,ScanSequence,SequenceVar,SequenceName,PixelRow,PixelColumn,...
     FlipAngle,EchoTime,RepTime,ITime,CNumFrames,Contrast,Orientation];
 
+% Remove Entries that do not have a Scan Sequence
+ImageArray(strcmp(ScanSequence,'Missing'),:) = [];
+
+% Create Table
 ImageTablewPath = cell2table(FinalImageArraywPath);
 ImageTable = cell2table(FinalImageArray);
 
@@ -217,43 +245,6 @@ ImageTable.Properties.VariableNames = Headers;
 % Creating Excel Tables
 writetable(ImageTablewPath, 'ImageTableWithPaths.xls')
 writetable(ImageTable,'ImageTable.xls')
-
-
-% Looking at overall distribution of number of slices/frames in images
-ImageSize = ImageTable(:,4);
-ImageSize = table2array(ImageSize);
-figure(1)
-histogram(ImageSize)
-xlabel('Number of Slices/Frames')
-ylabel('Count')
-
-% Creating histogram for Inversion Time
-% Inversion Time
-ITimeChar = cellfun(@(x) num2str(x), ITime, 'UniformOutput',false);
-indices = strcmp(ITimeChar, 'Missing');
-indices = (indices == 0);
-NumberofIR = sum(indices);
-IValues = ITimeChar(indices);
-IValues = str2double(IValues);
-figure(1)
-histogram(IValues)
-ylabel('Number of Images')
-xlabel('IR Time')
-MeanITime = round(mean(IValues),2);
-
-% Scan Sequence
-IRScanOnly = contains(ScanSequence,'IR');
-NumberofScanIR = sum(IRScanOnly);
-
-% Contrast
-ContrastOnly = (strcmp(Contrast,'Missing')==0);
-NumberofContrast = sum(ContrastOnly);
-
-% Summary of IR TIme, IR Scan Sequence, and Contrast
-fprintf('%d Images have an inversion recovery time \n', NumberofIR)
-fprintf('%.2f is the mean IR time \n', MeanITime)
-fprintf('%d Images have "IR" in ScanSequence \n', NumberofScanIR)
-fprintf('%d Images have Contrast \n', NumberofContrast)
 
 
 %% Table compiling patient data
@@ -340,185 +331,3 @@ fprintf('%d Patients have Hz Long Cine \n', sum(CineHzLong))
 fprintf('%d Patients have Vertical Long Cine \n', sum(CineVLong))
 fprintf('%d Patients have Coronal Cine \n', sum(CineCoronal))
 fprintf('%d Patients have both Short Axis Cine and MRI', both(1))
-
-%% Making Subfolders
-LGESeries = ImageTable(strcmp(ImageTable(:,6),'LGE'),:);
-LGEOnly = unique(LGESeries(:,2));
-
-% Copying and moving LGE Series into Separate Folder
-parfor i = 1:length(LGEOnly)
-    name = LGEOnly{i};
-    mkdir('LGEMRI', name);
-    newpath = fullfile('/home/beepul/HCM Project/LGEMRI',name);
-    temparray = LGESeries(strcmp(LGESeries(:,2),name),3);
-    for k = 1:length(temparray)
-        [path,seriesname] = fileparts(temparray{k});
-        copyfile(temparray{k},fullfile(newpath,seriesname));
-    end
-end 
-
-
-% Looking more closely at Short Axis (Oblique)
-for i = 1:length(NumberUnique)
-    [folder,name] = fileparts(NumberUnique{i});
-    PatID(i) = {name};
-    indices = find(strcmp(ImageTable(:,2),name));
-    temparray = ImageTable(indices,3:7);
-    indices = find(strcmp(temparray(:,5),'MRI_Oblique'));
-    if isempty(indicefigure(1)
-histogram(cell2mat(Max));s) == 0;
-        Size{i} = temparray(indices,3);
-        Max{i} = max(cell2mat(Size{i}));
-    else 
-        Size{i} = 0;
-        Max{i} = 0;
-    end
-end
-
-% Size lists the lengths of all SA_MRI series for a patient
-% Max is the longest series
-SA_Descrip = [PatID,Size',Max'];
-
-% Removes all patients who dont have short axis
-Maxnum = nonzeros(cell2mat(Max));
-figure(1)
-histogram(Maxnum)
-
-% Some relevant numbers
-fprintf('%d Patients have only 1 frame \n', sum(Maxnum==1))
-fprintf('%d Patients have only 2 frames \n', sum(Maxnum==2))
-fprintf('%d Patients have only 3 frames \n', sum(Maxnum==3))
-fprintf('%d Patients have greater than or equal to 5 frames \n', sum(Maxnum >= 4))
-
-SASeries = ImageTable(strcmp(ImageTable(:,7),'MRI_Oblique'),:);
-SAOnly = unique(SASeries(:,2));
-
-% Copying and moving SA MRI into specific folder
-parfor i = 1:length(SAOnly)
-    name = SAOnly{i};
-    mkdir('PatientShortAxisMRI', name);
-    newpath = fullfile('/home/beepul/HCM Project/PatientShortAxisMRI',name);
-    temparray = SASeries(strcmp(SASeries(:,2),name),3);
-    for k = 1:length(temparray)
-        [path,seriesname] = fileparts(temparray{k});
-        copyfile(temparray{k},fullfile(newpath,seriesname));
-    end
-end 
-
-%% Labeling and Sorting the Cine Views 
-CineSeries = ImageTable(strcmp(ImageTable(:,6),'Cine'),:);
-CineOnly = unique(CineSeries(:,2));
-
-% Checking Views of Cine 
-ID = cell(length(CineOnly),1);
-CineSA = zeros(length(CineOnly),1);
-CineHZL = zeros(length(CineOnly),1);
-CineVL = zeros(length(CineOnly),1);
-CineCor = zeros(length(CineOnly),1);
-
-parfor i = 1:length(CineOnly)
-    name = CineOnly{i};
-    ID{i} = name;
-    indices = find(strcmp(ImageTable(:,2),name));
-    temparray = ImageTable(indices,3:7);
-    if isempty(find(strcmp(temparray,'Cine_Oblique'))) == 1
-        CineSA(i) = 0;
-    else
-        CineSA(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'Cine_Transverse'))) == 1
-        CineHZL(i) = 0;
-    else
-        CineHZL(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'Cine_Sagittal'))) == 1
-        CineVL(i) = 0;
-    else
-        CineVL(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'Cine_Coronal'))) == 1
-        CineCor(i) = 0;
-    else
-        CineCor(i) = 1;
-    end
-end
-CineDescrip = table(ID,CineSA,CineHZL,CineVL,CineCor);
-
-fprintf('%d Patients have Short Axis Cine \n', sum(CineSA))
-fprintf('%d Patients have HZ Long Cine \n', sum(CineHZL))
-fprintf('%d Patients have V Long Cine \n', sum(CineVL))
-fprintf('%d Patients have Coronal Cine \n', sum(CineCor))
-
-%% Axial Cine
-
-% Make Axial Folder
-mkdir('Cine', 'Axial')
-
-AxCinePatients = CineDescrip.ID(CineDescrip.CineHZL == 1);
-
-parfor i = 1:length(AxCinePatients)
-    ID = AxCinePatients{i};
-    mkdir('/home/beepul/HCM Project/Cine/Axial', ID);
-    newpath = fullfile('/home/beepul/HCM Project/Cine/Axial',ID)
-    patIndices = CineSeries(strcmp(CineSeries(:,2),ID),:);
-    Axial = patIndices(strcmp(patIndices(:,4),'Transverse'),:);
-    for k = 1:size(Axial,1)
-        [path,seriesname] = fileparts(Axial{k,3});
-        copyfile(Axial{k,3},fullfile(newpath,seriesname));
-    end
-end
-
-% Max Number of Frames
-AxCine = CineSeries(strcmp(CineSeries(:,7),'Cine_Transverse'),:);
-AxMaxFrames = zeros(length(AxCinePatients),1);
-
-for i = 1:length(AxCinePatients)
-    indices = find(strcmp(AxCine(:,2),AxCinePatients(i)));
-    temparray = AxCine(indices,5);
-    AxMaxFrames(i) = max(cell2mat(temparray));
-end
-
-AxCineCount = [AxCinePatients,num2cell(AxMaxFrames)];
-
-%% Short Axis Cine
-
-% % Make SA Folder
-mkdir('Cine', 'SA')
-
-SACinePatients = CineDescrip.ID(CineDescrip.CineSA == 1);
-
-parfor i = 1:length(SACinePatients)
-    ID = SACinePatients{i};
-    mkdir('/home/beepul/HCM Project/Cine/SA', ID);
-    newpath = fullfile('/home/beepul/HCM Project/Cine/SA',ID)
-    patIndices = CineSeries(strcmp(CineSeries(:,2),ID),:);
-    SA = patIndices(strcmp(patIndices(:,4),'Oblique'),:);
-    for k = 1:size(SA,1)
-        [path,seriesname] = fileparts(SA{k,3});
-        copyfile(SA{k,3},fullfile(newpath,seriesname));
-    end
-end
-
-% Max Number of Frames
-SACine = CineSeries(strcmp(CineSeries(:,7),'Cine_Oblique'),:);
-SAMaxFrames = zeros(length(SACinePatients),1);
-
-for i = 1:length(SACinePatients)
-    indices = find(strcmp(SACine(:,2),SACinePatients(i)));
-    temparray = SACine(indices,5);
-    SAMaxFrames(i) = max(cell2mat(temparray));
-end
-
-SACineCount = [SACinePatients,num2cell(SAMaxFrames)]
-
-%% Checking SA Cine count...
-p = 0;
-for i = 1:length(PatID)
-    ind = strcmp(PatID(i),ImageTable(:,2));
-    counts = cell2mat(ImageTable(ind,5));
-    if any(counts > 100)
-        p = p + 1;
-    else
-        p = p;
-    end
-end
