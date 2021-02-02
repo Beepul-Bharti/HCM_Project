@@ -102,9 +102,9 @@ SeriesArray = [PatientPath,SeriesPath,Name,Category,Number,seriessize];
 % Subset of SeriesArray which are MR
 ImageArray = SeriesArray(strcmp(Category,'MRI_Image'),:);
 
-% Removing these image (Series 51 for Patient 501] bc unclear what it is
-ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM-Project/DicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
-ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM-Project/DicomImages/377_1/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
+% Removing these image (Series 501 for Patients 377 and 377_1] bc unclear what it is
+ImageArray(strcmp(ImageArray(:,3),'377') & cell2mat(ImageArray(:,5)) == 501,:) = [];
+ImageArray(strcmp(ImageArray(:,3),'377_1') & cell2mat(ImageArray(:,5)) == 501,:) = [];
 
 %% Relevant Dicom Tags
 
