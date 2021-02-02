@@ -11,7 +11,7 @@ format compact;
 % Define a starting folder.
 % This is where you will put your path
 % This folder should contain folders of each patient
-start_path = fullfile('/home/beepul/HCM Project/DicomImages');
+start_path = fullfile('/home/beepul/HCM-Project/DicomImages');
 
 % Ask user to confirm the folder, or change it.
 uiwait(msgbox('Pick a starting folder on the next window that will come up.'));
@@ -102,8 +102,9 @@ SeriesArray = [PatientPath,SeriesPath,Name,Category,Number,seriessize];
 % Subset of SeriesArray which are MR
 ImageArray = SeriesArray(strcmp(Category,'MRI_Image'),:);
 
-% Removing this image (Series 51 for Patient 501] bc unclear what it is
-ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM Project/NEWDicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
+% Removing these image (Series 51 for Patient 501] bc unclear what it is
+ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM-Project/DicomImages/377/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
+ImageArray(strcmp(ImageArray(:,2),'/home/beepul/HCM-Project/DicomImages/377_1/Mar 7, 2016/[501] MR  -- (1 instances)'),:) = [];
 
 %% Relevant Dicom Tags
 
@@ -140,46 +141,24 @@ parfor i  = 1:length(ImageArray)
     info = dicominfo(imagedir(p).name,'UseDictionaryVR',true);
     
     % Orientation
-    try
-        v = info.ImageOrientationPatient;
-        Orientation{i} = getOrientation(v(1:3),v(4:6));
-    catch
-        Orientation{i} = 'Missing'
-    end
+    v = info.ImageOrientationPatient;
+    Orientation{i} = getOrientation(v(1:3),v(4:6));
+
     
     % Pixel Spacing
-    try
-        Spacing = info.PixelSpacing;
-        PixelRow{i} = Spacing(1);
-        PixelColumn{i} = Spacing(2);
-    catch
-        PixelRow{i} = 'Missing';
-        PixelColumn{i} = 'Missing';
-    end
-    
+    Spacing = info.PixelSpacing;
+    PixelRow{i} = Spacing(1);
+    PixelColumn{i} = Spacing(2);
+
     % Repetition and Echo Times
-    try
-        EchoTime{i} = info.EchoTime;
-        RepTime{i} = info.RepetitionTime;
-    catch
-        EchoTime{i} = 'Missing'
-        RepTime{i} = 'Missing'
-    end
-    
+    EchoTime{i} = info.EchoTime;
+    RepTime{i} = info.RepetitionTime;
+
     % Sequence Variant
-    try
-         SequenceVar{i} = info.SequenceVariant;
-    catch
-         SequenceVar{i} = 'Missing'
-    end
-    
+    SequenceVar{i} = info.SequenceVariant;
+
     % Scan Sequence
-    try
-        SequenceClass = info.ScanningSequence;
-        ScanSequence{i} = SequenceClass;
-    catch 
-        ScanSequence{i} = 'Missing';
-    end
+    ScanSequence{i} = info.ScanningSequence;
     
     % Dicom Tags that are optional
     try
@@ -224,17 +203,14 @@ FinalImageArraywPath = [ImageArray,ScanSequence,SequenceVar,SequenceName,PixelRo
 FinalImageArray = [ImageArrayNoPath,ScanSequence,SequenceVar,SequenceName,PixelRow,PixelColumn,...
     FlipAngle,EchoTime,RepTime,ITime,CNumFrames,Contrast,Orientation];
 
-% Remove Entries that do not have a Scan Sequence
-ImageArray(strcmp(ScanSequence,'Missing'),:) = [];
-
 % Create Table
 ImageTablewPath = cell2table(FinalImageArraywPath);
 ImageTable = cell2table(FinalImageArray);
 
-Headers = {'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'ScanningSequence' 'SequenceVariant'...
+Headers = {'PatientNumber' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'ScanningSequence' 'SequenceVariant'...
     'SequenceName' 'PixelRowSpace' 'PixelColumnSpace' 'FlipAngle' 'EchoTime' 'RepetitionTime' 'InversionTime'...
     'CardiacNumofFrames' 'Contrast' 'Orientation'};
-HeaderswPaths = {'PatientPath' 'ImagePath' 'Patient Number' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'ScanningSequence' 'SequenceVariant'...
+HeaderswPaths = {'PatientPath' 'ImagePath' 'PatientNumber' 'Image' 'SeriesNumber' 'Number of Slice/Frames' 'ScanningSequence' 'SequenceVariant'...
     'SequenceName' 'PixelRowSpace' 'PixelColumnSpace' 'FlipAngle' 'EchoTime' 'RepetitionTime' 'InversionTime'...
     'CardiacNumofFrames' 'Contrast' 'Orientation'};
     
@@ -245,89 +221,3 @@ ImageTable.Properties.VariableNames = Headers;
 % Creating Excel Tables
 writetable(ImageTablewPath, 'ImageTableWithPaths.xls')
 writetable(ImageTable,'ImageTable.xls')
-
-
-%% Table compiling patient data
-uniqueID = unique(Name);
-PatID = cell(length(uniqueID),1);
-LGEVLong = zeros(length(uniqueID),1);
-LGEHzLong = zeros(length(uniqueID),1);
-LGECoronal = zeros(length(uniqueID),1);
-LGEShortAxis = zeros(length(uniqueID),1);
-CineVLong = zeros(length(uniqueID),1);
-CineHzLong = zeros(length(uniqueID),1);
-CineCoronal = zeros(length(uniqueID),1);
-CineShortAxis = zeros(length(uniqueID),1);
-
-% Table to describe each patients data
-for i = 1:length(PatID)
-    ID = uniqueID{i};
-    PatID{i} = ID;
-    indices = find(strcmp(ImageArray(:,1),ID));
-    temparray = ImageArray(indices,6);
-    if isempty(find(strcmp(temparray,'LGE_VLong'))) == 1 
-        LGEVLong(i) = 0;
-    else
-        LGEVLong(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'LGE_HzLong'))) == 1
-        LGEHzLong(i) = 0;
-    else
-        LGEHzLong(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'LGE_Coronal'))) == 1
-        LGECoronal(i) = 0;
-    else
-        LGECoronal(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'LGE_ShortAxis'))) == 1
-        LGEShortAxis(i) = 0;
-    else
-        LGEShortAxis(i) = 1;
-    end        
-    if isempty(find(strcmp(temparray,'Cine_VLong'))) == 1
-        CineVLong(i) = 0;
-    else
-        CineVLong(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'Cine_HzLong'))) == 1
-        CineHzLong(i) = 0;
-    else
-        CineHzLong(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'Cine_Coronal'))) == 1
-        CineCoronal(i) = 0;
-    else
-        CineCoronal(i) = 1;
-    end
-    if isempty(find(strcmp(temparray,'Cine_ShortAxis'))) == 1
-        CineShortAxis(i) = 0;
-    else
-        CineShortAxis(i) = 1;
-    end 
-end
-
-% Final Table Summarizing Patients and their image types
-PatientTable = table(PatID,LGEVLong,LGEHzLong,LGECoronal,LGEShortAxis,CineVLong,CineHzLong,CineCoronal,CineShortAxis);
-writetable(PatientTable,'PatientTable.xls')
-
-
-%% IGNORE FOR RIGHT NOW
-% Patients that have ShortAxis MRI and Short Axis Cine
-SA = PatImageSummary(PatImageSummary.LGEShortAxis == 1,:);
-SA = PatImageSummary.LGEShortAxis
-HZ = PatImageSummary(PatImageSummary.LGEHzLong == 1,:);
-HZ = PatImageSummary.LGEHzLong
-SA_Cine = SA(SA.CineShortAxis ==1,:);
-both = size(SA_Cine);
-
-% Summary
-fprintf('%d Patients have Short Axis MRI \n', sum(LGEShortAxis))
-fprintf('%d Patients have Hz Long MRI \n', sum(LGEHzLong))
-fprintf('%d Patients have Vertical Long MRI \n', sum(LGEVLong))
-fprintf('%d Patients have Coronal MRI \n', sum(LGECoronal))
-fprintf('%d Patients have Short Axis Cine \n', sum(CineShortAxis))
-fprintf('%d Patients have Hz Long Cine \n', sum(CineHzLong))
-fprintf('%d Patients have Vertical Long Cine \n', sum(CineVLong))
-fprintf('%d Patients have Coronal Cine \n', sum(CineCoronal))
-fprintf('%d Patients have both Short Axis Cine and MRI', both(1))
