@@ -16,7 +16,7 @@ function [Orientation] = getOrientation(v1,v2)
     n = abs(cross(v1,v2));
     
     Orientation = ["VLong","Coronal","HzLong"];
-    if sum(n) == 1;
+    if sum(n) == 1
         Orientation = convertStringsToChars(Orientation(n == 1));
     else
         Orientation = 'ShortAxis';
