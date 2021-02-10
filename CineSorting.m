@@ -35,10 +35,14 @@ CineTable = CineTable(contains(CineTable.SequenceName,'tfi'),:);
 CineTablewPath = CineTablewPath(contains(CineTablewPath.SequenceName,'tfi'),:);
 
 % Write Table
+writetable(CineTable, 'CineTable.xls')
 writetable(CineTablewPath,'CineTablewPaths.xls')
 
 % Copy Cine Images to Separate Folder
 CineOnly = unique(CineTable.PatientNumber);
+
+
+%% Only Need to run this one time
 
 % Make Specific Folder for 4 chamber views only
 mkdir('ShortAxisCine')
@@ -48,9 +52,9 @@ mkdir('RemainingCine')
 % Copy different cine images into their respective new folders
 parfor i = 1:length(CineOnly)
     name = CineOnly{i};
-    newpath = fullfile('/home/beepul/HCM Project/RemainingCine',name);
-    newpath2 = fullfile('/home/beepul/HCM Project/4ChamberCine',name);t
-    newpath3 = fullfile('/home/beepul/HCM Project/ShortAxisCine',name);
+    newpath = fullfile('/home/beepul/HCM-Project/RemainingCine',name);
+    newpath2 = fullfile('/home/beepul/HCM-Project/4ChamberCine',name);
+    newpath3 = fullfile('/home/beepul/HCM-Project/ShortAxisCine',name);
     temparray = CineTablewPath(strcmp(CineTablewPath.PatientNumber,name),:);
     for k = 1:size(temparray,1)
         [path,seriesname] = fileparts(temparray.ImagePath{k});
