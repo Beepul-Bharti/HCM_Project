@@ -14,11 +14,11 @@
 % Corners = [Lside,Rside,Top,Bottom]
 % SortedI: Array of the instances sorted chronologically.
 
-function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
+function [ROIImage] = LongAxisROI(PatientNumber,ImageNumber)
 
     % Top Level Folder Directory: PatientNumber
     PatientNumber = string(PatientNumber);
-    Directory = dir(fullfile('/home/beepul/HCM Project/4ChamberCine/',PatientNumber));
+    Directory = dir(fullfile('/home/beepul/HCM-Project/Best4ChamberCine/',PatientNumber));
     Directory(ismember({Directory.name},{'.','..','DICOMDIR'})) = [];
 
     % ImageNumber = Dicom Image
@@ -33,28 +33,38 @@ function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
     end
 
     % Rearrange to be from beginning to end w.r.t time
-    [SortedI,ind] = sort(Instance);
+    [~,ind] = sort(Instance);
     SortedImage = Image(:,:,ind);
 
     % Converting Image to double
-    SortedImage = double(Ysort) + 1;
+    SortedImage = double(SortedImage);
+    for i = 1:size(SortedImage,3)
+        NormImage(:,:,i) = SortedImage(:,:,i)/max(max(SortedImage(:,:,i)));
+    end
+%     figure(1)
+%     imshow(NormImage(:,:,1),[])
+%     title('Slice')
 
+    % CLAHE
+    for i = 1:size(NormImage,3)
+        Clahe(:,:,i) = adapthisteq(NormImage(:,:,i));
+    end
 
     % Compute Variance Image (sum of 1 through k harmonic images)
-    VarImage = var(SortedImage,0,3);
-
+    VarImage = var(Clahe,0,3);
+%     imshow(VarImage,[])
+    
     % Surface Plot of Variance Image
     numRows = size(VarImage,1);
     numCols = size(VarImage,2);
     [X,Y] = meshgrid(1:numCols,1:numRows); 
     
 %     figure(2); ax = axes;
-%     surf(X,Y,VarImage)
 %     imshow(VarImage,[])
 %     title(ax,'Variance Image ')
-%     
-%     Generate an image that detects edges from the Variance Image
-     Edges = edge(VarImage,'Canny');  
+     
+%   Generate an image that detects edges from the Variance Image
+    Edges = edge(VarImage,'Canny');
      
 %     figure(3); ax = axes;
 %     imshow(Edges)
@@ -74,10 +84,10 @@ function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
         gabormag(:,:,i) = imgaussfilt(gabormag(:,:,i),3*sigma); 
     end
     
-    % montage(gabormag,'Size',[4 4],'DisplayRange',[])
+%     montage(gabormag,'Size',[4 4],'DisplayRange',[])
     
     % Texture analysis on the Edge Image
-    wavelength = 2.^(0:1) * wavelengthMin;
+    wavelength = 2.^(0) * wavelengthMin;
     g = gabor(wavelength,orientation);
     gabormag2 = imgaborfilt(single(Edges),g);
     
@@ -85,12 +95,11 @@ function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
         sigma = 0.5*g(i).Wavelength;
         gabormag2(:,:,i) = imgaussfilt(gabormag2(:,:,i),3*sigma); 
     end
-    
-    % montage(gabormag2,'Size',[4 2])
-    
+    % montage(gabormag2,'Size',[4 1])
+
     % Make a feature set that includes texture analysis of both Variance
     % and Edge images for k-means segmentation
-    featureSet = cat(3,gabormag,gabormag2,X,Y);
+    featureSet = cat(3,gabormag,Edges,X,Y);
     SegImage = imsegkmeans(single(featureSet),2,'NormalizeInput',true);
     
     % Check Bottom left corner pixel value of SegImage
@@ -104,20 +113,26 @@ function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
     % In case there are more than objects in the mask, select/isolate the
     % one with the largest perimeter
     Mask = bwpropfilt(Mask,'perimeter',1);
+%     imshow(Mask)
     
-%     % Show the mask that comes from k means segmentation
+    % Show the mask that comes from k means segmentation
 %     figure(4); ax = axes;
 %     imshow(Mask)  
 %     title(ax,'Mask from K-means Segmentation')
 
+    % Regionprops
+    stats = regionprops(Mask,'Centroid','BoundingBox');
+    r = stats.BoundingBox(3:4);
+    rmin = round(min(r)/2);
+    rmax = round(max(r)/2);
+    
     % Hough Transform for Circle Detection
-    [centers, radii] = imfindcircles(Mask,[40,90],'Sensitivity',0.95);
+    [centers, radii] = imfindcircles(Mask,[rmin,rmax],'Sensitivity',1);
     
     % Pick the 'best' radius
     % The best radius is the radius associated with the circle whose center
     % is the closest to the centroid of the object in the mask
     
-    stats = regionprops(Mask,'Centroid');
     centroid = stats(1).Centroid;
     distance = centers - centroid;
     RelError = vecnorm(distance')/norm(centroid);
@@ -131,18 +146,18 @@ function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
     % image to make sure we get the whole heart so if the ratio is less
     % than 1.2 we correct to ensure it is 1.25. Also if the radius is too
     % large we shrink the radius
-    if ratio < 1.2 || ratio > 1.3
-        strongradius = sqrt((maskarea*1.25)/pi);
+    if ratio < 0.95 || ratio > 1.05
+        strongradius = sqrt((maskarea*1)/pi);
     end
     
 %     Show resulting circle overlayed over mask
 %     NOTE: We could use the 'best' center that comes from imfindcircles
 %     but the difference isn't much
-
-%     figure(5); ax = axes;
-%     imshow(Mask)
-%     viscircles(ax,centroid, strongradius,'EdgeColor','b')
-%     title(ax,'Mask and Overlayed Circle')
+% 
+    figure(5); ax = axes;
+    imshow(Mask)
+    viscircles(ax,centroid, strongradius,'EdgeColor','b')
+    title(ax,'Mask and Overlayed Circle')
 
 %     Make square filter to isolate the heart
 %     The square filter is 20% larger than the circle to ensure the whole
@@ -151,10 +166,10 @@ function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
     Filter = zeros(size(SortedImage,1),size(SortedImage,2));
     centroid(1) = centroid(1) + 5;
     middle = round(centroid);
-    Lside = round(middle(1) - (strongradius*1.2));
-    Rside = round(middle(1) + (strongradius*1.2));
-    Top = round(middle(2) - (strongradius*1.2));
-    Bottom = round(middle(2) + (strongradius*1.2));
+    Lside = round(middle(1) - (strongradius*1.1));
+    Rside = round(middle(1) + (strongradius*1.1));
+    Top = round(middle(2) - (strongradius*1.1));
+    Bottom = round(middle(2) + (strongradius*1.1));
     Corners = [Lside,Rside,Top,Bottom];
      
 %     If the filter exceeds the dimensions of the images, this corrects it
@@ -177,15 +192,15 @@ function [ROIImage,Corners,SortedI] = LongAxisROI(PatientNumber,ImageNumber)
 %     title('Image and Overlayed Filter')
     
 %     Multiply the SortedImage with the Filter to get the ROI
-    ROI = SortedImage.*Filter;
+    ROI = SortedImage(Corners(3):Corners(4),Corners(1):Corners(2),:);
     
 %     Put each slice into an entry in a cell array
     for i = 1:size(ROI,3)
         ROIImage{i} = ROI(:,:,i);
     end
     
-%     figure(7); ax = axes;
-%     imshow(ROIImage(:,:,1),[])
-%     title('ROI Image')
+    figure(7); ax = axes;
+    imshow(ROI(:,:,1),[])
+    title('ROI Image')
 
 end
