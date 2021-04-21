@@ -80,7 +80,8 @@ parfor i = 1:length(allseries)
     Number{i} = info.SeriesNumber;
     
     try
-        o = info.ImageOrientationPatient
+        % The image orientation tag will tell us if its an image or not.
+        o = info.ImageOrientationPatient;
         v = info.Modality
         if strcmp(v, 'MR')
             Category{i} = 'MRI_Image';
@@ -132,7 +133,53 @@ SequenceName = cell(length(ImageArray),1);
 % Calculating Orientation
 Orientation = cell(length(ImageArray),1);
 
+
+%% DO NOT RUN THIS PART OF THE CODE
+%%% Histogram Orientation
 % Tabulating all relevant DICOM tags for every image
+parfor i  = 1:length(ImageArray)
+    imagedir = dir(ImageArray{i,2});
+    imagedir(ismember({imagedir.name},{'.','..'})) = [];
+    
+    % Get dicom metadata
+    info = dicominfo(imagedir(p).name,'UseDictionaryVR',true);
+    
+    % Orientation
+    v = info.ImageOrientationPatient;
+    v1_1(i) = v(1);
+    v1_2(i) = v(2);
+    v1_3(i) = v(3);
+    v2_1(i) = v(4);
+    v2_2(i) = v(5);
+    v2_3(i) = v(6);
+end
+
+figure(1)
+histogram(v1_1)
+title('v1_1')
+
+figure(2)
+histogram(v1_2)
+title('v1_2')
+
+figure(3)
+histogram(v1_3)
+title('v1_3')
+
+figure(4)
+histogram(v2_1)
+title('v2_1')
+
+figure(5)
+histogram(v2_2)
+title('v2_2')
+
+figure(6)
+histogram(v2_3)
+title('v2_3')
+
+%% Run this part
+
 parfor i  = 1:length(ImageArray)
     imagedir = dir(ImageArray{i,2});
     imagedir(ismember({imagedir.name},{'.','..'})) = [];
@@ -144,7 +191,6 @@ parfor i  = 1:length(ImageArray)
     v = info.ImageOrientationPatient;
     Orientation{i} = getOrientation(v(1:3),v(4:6));
 
-    
     % Pixel Spacing
     Spacing = info.PixelSpacing;
     PixelRow{i} = Spacing(1);
